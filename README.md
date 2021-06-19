@@ -1,81 +1,151 @@
-#
-# Microservices with Java Spring Boot, Spring Cloud and Spring Security
+# Criando e testando containers Docker
 
-## Overview 
+## Criar rede docker para sistema hr
+```
+docker network create hr-net
+```
 
->    The objective of this project is to show a micro services structure using Spring Framework and it's moderns tools such as Spring Boot, Spring Cloud and Spring Security. 
-    
->Features we already have :
->- Eureka server to connect ours app services
->- Config server to centralize configuration
->- Api Gateway to expose ony one API to the world
->- OAuth protocol, with Authenticantion Server and Resource Server
-    
+## Testando perfil dev com Postgresql no Docker
+```
+docker pull postgres:12-alpine
 
+docker run -p 5432:5432 --name hr-worker-pg12 --network hr-net -e POSTGRES_PASSWORD=1234567 -e POSTGRES_DB=db_hr_worker postgres:12-alpine
 
->  __Disclaimer__: As the focus here is on microservices architecture, you can see that the services are quite simplistic, using an h2 database with few data and only exposing ~~rustics~~ GET requests.
-    
-#
-## Phase 1: Basic Services, Feign, Ribbon
-<br> 
+docker run -p 5432:5432 --name hr-user-pg12 --network hr-net -e POSTGRES_PASSWORD=1234567 -e POSTGRES_DB=db_hr_user postgres:12-alpine
+```
 
->### 1. Services : 
->    - hr-worker
->    - hr-payroll
+## hr-config-server
+```
+FROM openjdk:11
+VOLUME /tmp
+EXPOSE 8888
+ADD ./target/hr-config-server-0.0.1-SNAPSHOT.jar hr-config-server.jar
+ENTRYPOINT ["java","-jar","/hr-config-server.jar"]
+``` 
+```
+mvnw clean package
 
->### 2 Feign : 
->    OpenFeign provides an integration with Spring Boot, using it's auto configuration to easily perform REST requests.
+docker build -t hr-config-server:v1 .
 
->### 3 Ribbon load balancing : 
->   Netflix Ribbon create a client side balance load between multiples instances of a same application
+docker run -p 8888:8888 --name hr-config-server --network hr-net -e GITHUB_USER=acenelio -e GITHUB_PASS= hr-config-server:v1
+```
 
-#
-## Phase 2: Eureka, Hystrix, Zuul
-<br>
+## hr-eureka-server
+```
+FROM openjdk:11
+VOLUME /tmp
+EXPOSE 8761
+ADD ./target/hr-eureka-server-0.0.1-SNAPSHOT.jar hr-eureka-server.jar
+ENTRYPOINT ["java","-jar","/hr-eureka-server.jar"]
+``` 
+```
+mvnw clean package
 
->### 1. Eureka :
->    Spring Cloud Netflix provides Eureka server-client configuration, so you can register the services apps to a Eureka Server App that handles the load balance and failover. 
+docker build -t hr-eureka-server:v1 .
 
->### 2. Hystrix :
->    Circuit Breaker Hystrix can handle failures, providing fallbacks via annotation
+docker run -p 8761:8761 --name hr-eureka-server --network hr-net hr-eureka-server:v1
+```
 
->### 3. Zuul :
->    hr-api-gateway-zuul : Eureka Zuul is the reverse proxy working as an api gateway to filter and router all client's requests 
+## hr-worker
+```
+FROM openjdk:11
+VOLUME /tmp
+ADD ./target/hr-worker-0.0.1-SNAPSHOT.jar hr-worker.jar
+ENTRYPOINT ["java","-jar","/hr-worker.jar"]
+``` 
+```
+mvnw clean package -DskipTests
 
-<br>
+docker build -t hr-worker:v1 .
 
-#
-## Phase 3: One config to rule them all
-<br>
+docker run -P --network hr-net hr-worker:v1
+```
 
->### 1. Hr-Config
->    This application provides configuration files (on github) to all services that register to it. This configurations can be specific to a service, even filtering by profiles, or global to all
+## hr-user
+```
+FROM openjdk:11
+VOLUME /tmp
+ADD ./target/hr-user-0.0.1-SNAPSHOT.jar hr-user.jar
+ENTRYPOINT ["java","-jar","/hr-user.jar"]
+``` 
+```
+mvnw clean package -DskipTests
 
->### 2. Actuator :
->    Actuator provides many endpoints to app monitoring.  
+docker build -t hr-user:v1 .
 
-#
-## Phase 4: Authentication & Authorization
-<br>
+docker run -P --network hr-net hr-user:v1
+```
 
->### 1. Services : 
->    - Hr-user : service with db (h2) to provide de users and its roles
->    - Hr-auth : authorization server
+## hr-payroll
+```
+FROM openjdk:11
+VOLUME /tmp
+ADD ./target/hr-payroll-0.0.1-SNAPSHOT.jar hr-payroll.jar
+ENTRYPOINT ["java","-jar","/hr-payroll.jar"]
+``` 
+```
+mvnw clean package -DskipTests
 
->### 2. Authorization Server : 
->    Spring Security implements oauth protocol, using Basic auth for client authentication and Jwt for user token
+docker build -t hr-payroll:v1 .
 
->### 3. Server Resource :
->    Zuul gateway app (hr-api-gateway-zuul) authorize and authenticate the routes based on the token's request. Authorization server is public, though
+docker run -P --network hr-net hr-payroll:v1
+```
 
-#
-## Credits
+## hr-oauth
+```
+FROM openjdk:11
+VOLUME /tmp
+ADD ./target/hr-oauth-0.0.1-SNAPSHOT.jar hr-oauth.jar
+ENTRYPOINT ["java","-jar","/hr-oauth.jar"]
+``` 
+```
+mvnw clean package -DskipTests
 
->This project was based on a udemy's course called "Microsserviços Java com Spring Boot e Spring Cloud", so here is my credits to Nélio Alves, who is a great teacher and professional, and his staff. You can check this out on this link : https://www.udemy.com/course/microsservicos-java-spring-cloud/
+docker build -t hr-oauth:v1 .
 
-#
-## Extra
+docker run -P --network hr-net hr-oauth:v1
+```
 
->New Features can be created over time, so some code can be refactor in new commits.
+## hr-api-gateway-zuul
+```
+FROM openjdk:11
+VOLUME /tmp
+EXPOSE 8765
+ADD ./target/hr-api-gateway-zuul-0.0.1-SNAPSHOT.jar hr-api-gateway-zuul.jar
+ENTRYPOINT ["java","-jar","/hr-api-gateway-zuul.jar"]
+``` 
+```
+mvnw clean package -DskipTests
 
+docker build -t hr-api-gateway-zuul:v1 .
 
+docker run -p 8765:8765 --name hr-api-gateway-zuul --network hr-net hr-api-gateway-zuul:v1
+```
+
+## Alguns comandos Docker
+Criar uma rede Docker
+```
+docker network create <nome-da-rede>
+```
+Baixar imagem do Dockerhub
+```
+docker pull <nome-da-imagem:tag>
+```
+Ver imagens
+```
+docker images
+```
+Criar/rodar um container de uma imagem
+```
+docker run -p <porta-externa>:<porta-interna> --name <nome-do-container> --network <nome-da-rede> <nome-da-imagem:tag> 
+```
+Listar containers
+```
+docker ps
+
+docker ps -a
+```
+Acompanhar logs do container em execução
+```
+docker logs -f <container-id>
+```
