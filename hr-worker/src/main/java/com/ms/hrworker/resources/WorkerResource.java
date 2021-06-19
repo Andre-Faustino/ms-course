@@ -19,8 +19,7 @@ import com.ms.hrworker.repositories.WorkerRepository;
 
 @RefreshScope
 @RestController
-@RequestMapping(value = "/workers")
-public class WorkerResource {
+public class WorkerResource  extends BaseResource{
 
 	
 	private static Logger logger = org.slf4j.LoggerFactory.getLogger(WorkerResource.class);
