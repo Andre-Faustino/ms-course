@@ -74,10 +74,20 @@
 >This project was based on a udemy's course called "Microsserviços Java com Spring Boot e Spring Cloud", so here is my credits to Nélio Alves, who is a great teacher and professional, and his staff. You can check this out on this link : https://www.udemy.com/course/microsservicos-java-spring-cloud/
 
 #
+## If you want to test it out
+
+>In case you want to test this microservice, follow this steps:
+> - Clone or Download all files
+> - Run the microservices in this order: hr-config, hr-eureka-server, all others in any order
+> - Import the Postman's collection and the Postman's envs to your Postman
+> - Have Fun!
+
+
+#
 ## Extra
 
 >You can see this same project using dockers in "Docker" branch
+>Contact me if you have any trouble or question about this project
 
->New Features can be created over time, so some code can be refactor in new commits.
 
 
